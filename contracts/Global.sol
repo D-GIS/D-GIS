@@ -4,7 +4,7 @@
     Purpose: Representation of a global storage on the chain.
  */
 
-pragma solidity 0.5.2;
+pragma solidity 0.5.8;
 pragma experimental ABIEncoderV2;
 
 import "./TxtStorage.sol";
@@ -21,7 +21,7 @@ contract GlobalStorage{
 
     uint256 private globalId;
 
-    mapping(address => address[]) private supply;
+    mapping(address => address) private LS2SR;
     mapping(address => bool) private accounts_present;
 
     mapping(address => bool) private storage_present;
@@ -30,17 +30,20 @@ contract GlobalStorage{
 
     bytes32 dummy_streamer;
 
+
     constructor(uint256 gid) public{
         totalStorage = 0;
         median = 0;
         totalAccounts = 0;
         globalId = gid;
 
-        TxtStreamer mDummy_streamer = new TxtStreamer(address(this));
+        TxtStreamer mDummy_streamer = TxtStreamer(address(this));
         address m_addr = address(mDummy_streamer);
+        bytes32 o_dummy_hash;
         assembly{
-            dummy_streamer := extcodehash(m_addr)
+            o_dummy_hash := extcodehash(m_addr)
         }
+        dummy_streamer = o_dummy_hash;
     }
 
     function IsStorage(address addr) private view returns(bool){
@@ -83,13 +86,18 @@ contract GlobalStorage{
     /////
     // Deploys a new TxtStorage.
     function UploadContent(string memory name, uint256 price, string memory hash_) public {
-        require(IsAccountPresent(msg.sender), "Caller has not been registered on this global.");
+        //require(IsAccountPresent(msg.sender), "Caller has not been registered on this global.");
 
         TxtStorage stor = new TxtStorage(name, price, hash_, address(this), msg.sender);   // Or maybe just use DELEGATECALL in order to set Ownership to the caller ?
         address content = address(stor);
-        supply[msg.sender].push(content);
         totalStorage++;
         storage_present[content] = true;
+        LS2SR[content] = msg.sender;
+
+        // Fix tokens
+        //total_tokens += 100;
+        //unused_tokens += 100;
+        //SendTokensTo(msg.sender, 10);  // Send 10 tokens to the user who uploaded the storage
 
         emit CountIncreased(content);
     }

@@ -8,10 +8,8 @@
  // Owner's address is the TxtStreamer address and the streamer's owner is the public wallet address of the user.
  // RREGULLO TRANSFERIMIN !!!  [X]
 
- // SI DREQIN DO LEVIZI REPUTACIONI????
 
-
-pragma solidity 0.5.2;
+pragma solidity 0.5.8;
 pragma experimental ABIEncoderV2;
 
 import "./TxtStreamer.sol";
@@ -34,8 +32,12 @@ contract TxtStorage{
 
     uint256 private total_price;
 
-    event RequestData(address sender);
-    event ReputationGiven(address sender);
+    event RequestData(address sender, uint rId);   // This waits for approval by the owner.
+ 
+    event RetrieveData(address sender, uint rId);   // This retrives the DL link and code automatically.
+
+    event ReputationGiven(bool negative, uint256 amount);
+
 
     uint256 private Price;
 
@@ -47,6 +49,44 @@ contract TxtStorage{
     bool public IsAvailable;
 
     GlobalStorage m_global;
+
+
+    // Tokens experiment
+    
+    uint256 private good_rep;
+    uint256 private bad_rep;
+
+    bool private open_access = false;
+
+    function GetRep() public view returns(uint256, uint256){
+        return (good_rep, bad_rep);
+    }
+
+    function PlusGood(uint256 val) public {
+        require(msg.sender == address(m_global));
+        good_rep += val;
+        bad_rep -= val;
+
+        emit ReputationGiven(false, val);
+    }
+
+    function PlusBad(uint256 val) public{
+        require(msg.sender == address(m_global));
+        good_rep -= val;
+        bad_rep += val;
+
+        emit ReputationGiven(true, val);
+    }
+
+    function RequestAccess(address from, uint rId) public {
+        if(open_access){
+            emit RetrieveData(from, rId);
+        } else {
+            emit RequestData(from, rId);
+        }
+    }
+
+    // End of tokens experiment
 
     constructor(string memory name_, uint256 price, string memory hash_, address gl, address payable _owner) public{
         owner = _owner;
@@ -115,7 +155,7 @@ contract TxtStorage{
         //Rating += (txtSr.GetCurrentReputation() / 20) * multiplier;
 
         m_global.IncrementTotalRep(rep);
-        emit ReputationGiven(msg.sender);
+        emit ReputationGiven(false, rep);
         return;
     }
 
@@ -135,8 +175,8 @@ contract TxtStorage{
 
         Customers[msg.sender].sender = msg.sender;
         Customers[msg.sender].pending = true;
-        Customers[msg.sender].stream = new TxtStreamer(msg.sender);
-        emit RequestData(msg.sender);
+        Customers[msg.sender].stream = TxtStreamer(msg.sender);
+        emit RequestData(msg.sender, 1);
     }
 
     ////
@@ -149,7 +189,7 @@ contract TxtStorage{
 
         require(Rating > 0, "This document has a negative rating, therefore it's free.");
 
-        emit RequestData(msg.sender);
+        emit RequestData(msg.sender, 1);
     }
 
     ////
@@ -186,7 +226,7 @@ contract TxtStorage{
         Customers[msg.sender].price_paid = val;
         Customers[msg.sender].sender = msg.sender;
         Customers[msg.sender].pending = true;
-        Customers[msg.sender].stream = new TxtStreamer(msg.sender);
+        Customers[msg.sender].stream = TxtStreamer(msg.sender);
         return TracebackOwner();
     }
 

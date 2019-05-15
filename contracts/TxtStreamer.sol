@@ -4,7 +4,7 @@
     Purpose: Representation of an individual on the chain.
  */
 
-pragma solidity 0.5.2;
+pragma solidity 0.5.8;
 pragma experimental ABIEncoderV2;
 
 import "./Global.sol";
@@ -86,14 +86,16 @@ contract TxtStreamer{
         //require(place == address(0), "Invalid address specified.");
         require(bytes(name).length > 0, "Invalid name specified.");
         require(bytes(fileHash).length > 0, "Invalid file hash specified.");
-        require(GetAllowance(), "You don't have sufficient reputation in order to upload a new material.");
+        //require(GetAllowance(), "You don't have sufficient reputation in order to upload a new material.");
         
-        TxtStorage m_storage = new TxtStorage(name, price, fileHash, address(m_global));
+        TxtStorage m_storage = new TxtStorage(name, price, fileHash, address(m_global), 0xf5F3686F4Ef910d5aE03D55Fe2Bf93BB0a6EE5Ba);
         address place = address(m_storage);
 
         DeployedStorages[place] = name;
         totalStorages++;
         _reputation += 1;
+        
+        m_global.UploadContent(name, price, fileHash);
         return place;
     }
 
