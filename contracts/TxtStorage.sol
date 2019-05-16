@@ -2,11 +2,12 @@
     File Name: TxtStorage.sol
     Author: Elio Decolli    (eliodecolli@gmail.com)
     Purpose: Serves as a metadata storage for a specified item available on a hybrid blockchain.
+    Last Updated: 5/16/2019
  */
 
 
  // Owner's address is the TxtStreamer address and the streamer's owner is the public wallet address of the user.
- // RREGULLO TRANSFERIMIN !!!  [X]
+ // RREGULLO TRANSFERIMIN !!!  [X] ?
 
 
 pragma solidity 0.5.8;
@@ -16,47 +17,53 @@ import "./TxtStreamer.sol";
 import "./Global.sol";
 
 contract TxtStorage{
-    
-    struct Customer{
-        address sender;
-        bool pending;
-        uint256 price_paid;
-        TxtStreamer stream;
-    }
 
     address private owner;
     string private hash_data;
     string private name;
-
     int256 private Rating;
-
     uint256 private total_price;
-
-    event RequestData(address sender, uint rId);   // This waits for approval by the owner.
- 
-    event RetrieveData(address sender, uint rId);   // This retrives the DL link and code automatically.
-
-    event ReputationGiven(bool negative, uint256 amount);
-
-
     uint256 private Price;
-
     TxtStreamer private Owner;
-    
-    mapping(address => Customer) private Customers;
-
-
     bool public IsAvailable;
-
     GlobalStorage m_global;
-
-
-    // Tokens experiment
-    
     uint256 private good_rep;
     uint256 private bad_rep;
 
     bool private open_access = false;
+
+    mapping(address => bool) private AllowedCustomers;
+    mapping(address => uint256) private CustomersCodes;
+
+    modifier mustBeAllowed(){
+        require(AllowedCustomers[msg.sender] == true, "The specified address is not allowed to access the storage.");
+        _;
+    }
+
+    modifier ownerOnly(){
+        require(msg.sender == owner, "Invalid access credentials.");
+        _;
+    }
+
+    event RequestData(address sender);   // This waits for approval by the owner.
+    event RetrieveData(address sender);   // This retrives the DL link and code automatically.
+    event ReputationGiven(bool negative, uint256 amount);
+    event RequestGenerateNewLink(address sender, uint256 code);
+
+    constructor(string memory name_, uint256 price, string memory hash_, address gl, address payable _owner) public{
+        owner = _owner;
+        name = name_;
+        Price = price;
+        total_price = 0;
+        hash_data = hash_;
+        IsAvailable = true;
+
+        Owner = TxtStreamer(owner);
+        m_global = GlobalStorage(gl);
+    }
+
+
+    // Tokens experiment
 
     function GetRep() public view returns(uint256, uint256){
         return (good_rep, bad_rep);
@@ -78,26 +85,10 @@ contract TxtStorage{
         emit ReputationGiven(true, val);
     }
 
-    function RequestAccess(address from, uint rId) public {
-        if(open_access){
-            emit RetrieveData(from, rId);
-        } else {
-            emit RequestData(from, rId);
-        }
-    }
-
     // End of tokens experiment
 
-    constructor(string memory name_, uint256 price, string memory hash_, address gl, address payable _owner) public{
-        owner = _owner;
-        name = name_;
-        Price = price;
-        total_price = 0;
-        hash_data = hash_;
-        IsAvailable = true;
-
-        Owner = TxtStreamer(owner);
-        m_global = GlobalStorage(gl);
+    function SetAccessType(bool access) public ownerOnly{
+        open_access = access;
     }
 
     function TracebackOwner() private view returns(address payable){
@@ -121,8 +112,7 @@ contract TxtStorage{
         return name;
     }
 
-    function SetHashData(string memory hd) public {
-        require(msg.sender == owner);
+    function SetHashData(string memory hd) public ownerOnly {
         require(IsAvailable == true, "Current storage is not available anymore.");
 
         hash_data = hd;
@@ -139,69 +129,37 @@ contract TxtStorage{
         }
     }
 
-    function IsUserDone(address user) private view returns(bool){
-         return Customers[user].pending;
-    }
-
-    ////
-    // Leave a positive feedback. :)
-    function IncreaseRep(uint256 rep) public {
-        require(msg.sender != owner);
-        require(IsUserDone(msg.sender));
-        require(IsAvailable == true, "Current storage is not available anymore.");
-        //require(multiplier == -1 || multiplier == 1);
-
-        //TxtStreamer txtSr = TxtStreamer(txtStreamer);
-        //Rating += (txtSr.GetCurrentReputation() / 20) * multiplier;
-
-        m_global.IncrementTotalRep(rep);
-        emit ReputationGiven(false, rep);
-        return;
-    }
-
-    ////
-    // Get the current reputation of this storage.
-    function GetReputation() public view returns(int256){
-        return Rating;
-    }
-
-    ////
-    // Request data access for free to this storage.
-    function GetDataFree() public {
-        require(Rating < 0, "This document is not for free.");
-        require(!IsUserDone(msg.sender), "You've already made a request for this document.");
-        require(msg.sender != owner, "Invalid request source.");
-        require(IsAvailable == true, "Current storage is not available anymore.");
-
-        Customers[msg.sender].sender = msg.sender;
-        Customers[msg.sender].pending = true;
-        Customers[msg.sender].stream = TxtStreamer(msg.sender);
-        emit RequestData(msg.sender, 1);
-    }
-
     ////
     // Request data access to this storage.
-    function GetData() public {
-        //require(msg.value >= Price, "Price is too low.");
-        require(!IsUserDone(msg.sender), "You've already made a request for this document.");
-        require(msg.sender != owner);
+    function ReqeustDataAccess() public {
         require(IsAvailable == true, "Current storage is not available anymore.");
-
         require(Rating > 0, "This document has a negative rating, therefore it's free.");
 
-        emit RequestData(msg.sender, 1);
+        if(!open_access)
+        {
+            emit RequestData(msg.sender);
+        }
+        else
+        {
+            emit RetrieveData(msg.sender);   // This must redirect the GoServer to call TransferData() or RejectTransfer()!
+        }
     }
 
     ////
     // Accept transaction and send the user the download link as well as the code to access it.
+    // It's recommended to use this function only once, to allow the user to access the data.
     function TransferData(address dude, uint256 code, string memory dlLink) public {
         require(IsAvailable == true, "Current storage is not available anymore.");
         require(msg.sender == owner);
-        require(!IsUserDone(dude));
 
-        //owner.transfer(Customers[dude].price_paid);
-        Customers[dude].pending = false;
-        Customers[dude].stream.Tell(true, code, dlLink);
+        AllowedCustomers[dude] = true;   // Here we are bypassing the hash-check to make sure what kind of contract is trying to call our code.
+        CustomersCodes[dude] = code;
+        TxtStreamer xStreamer = TxtStreamer(dude);
+        xStreamer.Tell(true, code, dlLink);
+    }
+
+    function GenerateNewLink() public mustBeAllowed {
+        emit RequestGenerateNewLink(msg.sender, CustomersCodes[msg.sender]);
     }
 
     ////
@@ -209,11 +167,9 @@ contract TxtStorage{
     function RejectTransfer(address dude) public {
         require(IsAvailable == true, "Current storage is not available anymore.");
         require(msg.sender == owner);
-        require(!IsUserDone(dude));
 
-        //owner.transfer(Customers[dude].price_paid);
-        Customers[dude].pending = false;
-        Customers[dude].stream.Tell(false, 0, "");
+        TxtStreamer xStreamer = TxtStreamer(dude);
+        xStreamer.Tell(false, 0, "");
     }
 
     ////
@@ -223,10 +179,6 @@ contract TxtStorage{
         require(val == Price, "Specified amount is not valid.");
         require(msg.sender != owner, "Invalid request source.");
 
-        Customers[msg.sender].price_paid = val;
-        Customers[msg.sender].sender = msg.sender;
-        Customers[msg.sender].pending = true;
-        Customers[msg.sender].stream = TxtStreamer(msg.sender);
         return TracebackOwner();
     }
 

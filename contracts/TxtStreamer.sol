@@ -2,6 +2,7 @@
     File Name: TxtStreamer.sol
     Author: Elio Decolli    (eliodecolli@gmail.com)
     Purpose: Representation of an individual on the chain.
+    Last Updated: 5/16/2019
  */
 
 pragma solidity 0.5.8;

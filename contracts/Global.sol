@@ -2,6 +2,7 @@
     File Name: Global.sol
     Author: Elio Decolli    (eliodecolli@gmail.com)
     Purpose: Representation of a global storage on the chain.
+    Last Updated: 5/16/2019
  */
 
 pragma solidity 0.5.8;
@@ -37,7 +38,8 @@ contract GlobalStorage{
         totalAccounts = 0;
         globalId = gid;
 
-        TxtStreamer mDummy_streamer = TxtStreamer(address(this));
+        // we only setup dummy streamers, because storages are deployed from a GS then there's no need to check the integrity of a call from a LS, just map it.
+        TxtStreamer mDummy_streamer = new TxtStreamer(address(this));
         address m_addr = address(mDummy_streamer);
         bytes32 o_dummy_hash;
         assembly{
